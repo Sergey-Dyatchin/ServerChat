@@ -1,30 +1,31 @@
 package client;
 
-import server.ServerWindow;
+import server.Server;
+
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 
-public class ClientGUI extends JFrame {
+public class ClientGUI extends JFrame implements ClienView {
     private static final int WIDTH = 400;
     private static final int HEIGHT = 300;
     private static final String NAME_CLIENT = "Window client chat";
-    private ServerWindow serverWindow;
-    private boolean connected;
-    private String name;
+
     private JTextArea history;
     private JTextField ipAddress, port, login, message;
     private JPasswordField password;
     private JButton buttonLogin, buttonSend;
     private JPanel connectedPanel;
 
-    public ClientGUI(ServerWindow serverWindow, int offsetX) {
-        this.serverWindow = serverWindow;
+    private Client client;
+
+    public ClientGUI(Server server, int offsetX, int offsetY) {
+        client = new Client(this, server);
         setSize(WIDTH, HEIGHT);
         setResizable(false);
         setTitle(NAME_CLIENT);
-        setLocation(serverWindow.getX() + offsetX, serverWindow.getY());
+        setLocation(offsetX, offsetY);
         createPanel();
         setVisible(true);
 
@@ -46,7 +47,7 @@ public class ClientGUI extends JFrame {
         buttonLogin.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                connectServer();
+                connectToServer();
             }
         });
         connectedPanel.add(ipAddress);
@@ -69,17 +70,17 @@ public class ClientGUI extends JFrame {
         JPanel panel = new JPanel(new BorderLayout());
         message = new JTextField();
         message.addKeyListener(new KeyAdapter() {
-                                   public void keyPressed(KeyEvent e) {
-                                       if (e.getKeyChar() == '\n') {
-                                           sendMessage();
-                                       }
-                                   }
-                               });
+            public void keyPressed(KeyEvent e) {
+                if (e.getKeyChar() == '\n') {
+                    sendMessages();
+                }
+            }
+        });
         buttonSend = new JButton("Send");
         buttonSend.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                sendMessage();
+                sendMessages();
             }
         });
         panel.add(message);
@@ -87,50 +88,39 @@ public class ClientGUI extends JFrame {
         return panel;
     }
 
-    public void showMessage(String text) {
-        addHistory(text);
+    private void sendMessages() {
+        client.sendMessage(message.getText());
+        message.setText("");
     }
 
-    private void connectServer() {
-        if (serverWindow.connectUser(this)) {
-            addHistory("Successful connection");
-            connectedPanel.setVisible(false);
-            connected = true;
-            name = login.getText();
-            String servHistory = serverWindow.getHistory();
-            if (servHistory != null) {
-                addHistory(servHistory);
-            }
-        } else {
-            addHistory("Connection error");
-        }
-    }
-
-    public void disconnect(boolean initServ) {
-        if (connected) {
-            connectedPanel.setVisible(true);
-            connected = false;
-            addHistory("Disconnection");
-            if (!initServ) {
-                serverWindow.disconnect(this);
-            }
-        }
-    }
 
     private void addHistory(String text) {
         history.append(text + "\n");
     }
 
-    public void sendMessage() {
-        if (connected) {
-            String text = message.getText();
-            if (!text.isEmpty()) {
-                serverWindow.publishMessage(name + ": " + text);
-                message.setText("");
-            } else {
-                addHistory("You are not connected");
-            }
+
+    @Override
+    public void showMessage(String message) {
+        addHistory(message);
+    }
+
+    @Override
+    public void disconnectFromServer(boolean initServ) {
+        setVisibleConnectedPanel(true);
+        if (!initServ) {
+            client.disconnect(initServ);
         }
     }
+
+    private void connectToServer() {
+        if (client.connectToServer(login.getText())) {
+            setVisibleConnectedPanel(false);
+        }
+    }
+
+    void setVisibleConnectedPanel(boolean visible) {
+        connectedPanel.setVisible(visible);
+    }
+
 
 }
